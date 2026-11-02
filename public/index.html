@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05080f" />
+  <meta name="description" content="Nebula — ephemeral space chat. Nothing is saved." />
+  <title>Nebula</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23050d1a'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%2378e0ff'/%3E%3Ccircle cx='48' cy='18' r='3' fill='%23ffb86b'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="starfield" aria-hidden="true"></div>
+  <canvas id="nebula-canvas" aria-hidden="true"></canvas>
+
+  <!-- Gate -->
+  <section id="gate" class="gate">
+    <div class="gate-panel">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 120 120" width="88" height="88">
+          <defs>
+            <radialGradient id="core" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#9ef0ff"/>
+              <stop offset="55%" stop-color="#2a7fff"/>
+              <stop offset="100%" stop-color="#0a1224"/>
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a4a6a" stroke-width="1.5" stroke-dasharray="4 6"/>
+          <ellipse cx="60" cy="60" rx="46" ry="18" fill="none" stroke="#5ad0ff55" stroke-width="1" transform="rotate(-18 60 60)"/>
+          <ellipse cx="60" cy="60" rx="46" ry="18" fill="none" stroke="#ffb86b44" stroke-width="1" transform="rotate(42 60 60)"/>
+          <circle cx="60" cy="60" r="16" fill="url(#core)"/>
+          <circle cx="98" cy="42" r="4" fill="#ffb86b"/>
+        </svg>
+      </div>
+      <h1 class="brand">Nebula</h1>
+      <p class="tagline">Talk in orbit. Messages burn. No accounts, no archives.</p>
+      <form id="join-form" class="join-form" autocomplete="off">
+        <label for="username">Callsign</label>
+        <input id="username" name="username" maxlength="24" placeholder="e.g. comet_rider" required autofocus />
+        <button type="submit" class="btn primary">Enter orbit</button>
+      </form>
+      <ul class="gate-notes">
+        <li>Pick a username — that is your whole identity</li>
+        <li>Chats, stories, and posts live in RAM only</li>
+        <li>Screenshot attempts are announced in the room</li>
+        <li>Voice / video uses public STUN (+ optional TURN)</li>
+      </ul>
+      <div class="diagram" aria-hidden="true">
+        <svg viewBox="0 0 360 90" width="100%" height="90">
+          <rect x="8" y="28" width="70" height="36" rx="8" fill="#0d1a2e" stroke="#3a6a8a"/>
+          <text x="43" y="50" text-anchor="middle" fill="#9ec9e8" font-size="11" font-family="Space Grotesk">You</text>
+          <path d="M82 46 H130" stroke="#5ad0ff" stroke-width="2" marker-end="url(#arr)"/>
+          <rect x="132" y="20" width="96" height="52" rx="8" fill="#0d1a2e" stroke="#78e0ff"/>
+          <text x="180" y="42" text-anchor="middle" fill="#78e0ff" font-size="11" font-family="Space Grotesk">Nebula node</text>
+          <text x="180" y="58" text-anchor="middle" fill="#6a8aa8" font-size="9" font-family="Space Grotesk">memory · wipe</text>
+          <path d="M230 46 H278" stroke="#5ad0ff" stroke-width="2"/>
+          <rect x="280" y="28" width="70" height="36" rx="8" fill="#0d1a2e" stroke="#3a6a8a"/>
+          <text x="315" y="50" text-anchor="middle" fill="#9ec9e8" font-size="11" font-family="Space Grotesk">Peers</text>
+          <defs>
+            <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#5ad0ff"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- App shell -->
+  <div id="app" class="app hidden" role="application">
+    <aside class="rail">
+      <div class="rail-brand">
+        <span class="dot"></span>
+        <span>Nebula</span>
+      </div>
+      <nav class="rail-nav">
+        <button class="nav-btn active" data-view="chat" title="Rooms">◈</button>
+        <button class="nav-btn" data-view="feed" title="Feed">◎</button>
+        <button class="nav-btn" data-view="stories" title="Stories">◌</button>
+        <button class="nav-btn" data-view="dms" title="Direct">⇄</button>
+        <button class="nav-btn" data-view="telemetry" title="Telemetry">▦</button>
+      </nav>
+      <div class="rail-user" id="me-chip"></div>
+    </aside>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <h2 id="sidebar-title">Orbits</h2>
+        <button id="btn-new-room" class="btn ghost sm" type="button">+ Room</button>
+      </div>
+      <div id="sidebar-body" class="sidebar-body"></div>
+    </aside>
+
+    <main class="stage">
+      <header class="stage-bar">
+        <button type="button" id="btn-sidebar" class="icon-btn mobile-only" title="Menu">☰</button>
+        <div>
+          <h2 id="stage-title">Select an orbit</h2>
+          <p id="stage-sub" class="muted">Ephemeral channels · auto-erase</p>
+        </div>
+        <div class="stage-actions">
+          <span id="ttl-badge" class="badge" title="Message lifetime">TTL —</span>
+          <button id="btn-call-audio" class="btn ghost sm" type="button" disabled>Call</button>
+          <button id="btn-call-video" class="btn ghost sm" type="button" disabled>Video</button>
+          <button id="btn-leave-room" class="btn ghost sm" type="button" disabled>Leave</button>
+        </div>
+      </header>
+
+      <!-- Chat -->
+      <section id="view-chat" class="view active">
+        <div id="messages" class="messages"></div>
+        <div id="typing" class="typing muted"></div>
+        <div class="composer">
+          <button type="button" id="btn-emoji" class="icon-btn" title="Emoji">☺</button>
+          <button type="button" id="btn-gif" class="icon-btn" title="GIF">GIF</button>
+          <button type="button" id="btn-attach" class="icon-btn" title="Image">⌂</button>
+          <button type="button" id="btn-voice" class="icon-btn" title="Hold to record voice">◉</button>
+          <input type="file" id="file-input" accept="image/*" hidden />
+          <textarea id="composer-input" rows="1" placeholder="Transmit…  (@username to mention)" maxlength="2000"></textarea>
+          <button type="button" id="btn-send" class="btn primary sm">Send</button>
+        </div>
+        <div id="emoji-panel" class="pop-panel hidden"></div>
+        <div id="gif-panel" class="pop-panel gif-panel hidden">
+          <div class="gif-search">
+            <input id="gif-q" placeholder="Search GIFs…" />
+            <button type="button" id="gif-go" class="btn ghost sm">Go</button>
+          </div>
+          <div id="gif-grid" class="gif-grid"></div>
+        </div>
+      </section>
+
+      <!-- Feed (Instagram-like) -->
+      <section id="view-feed" class="view">
+        <div class="feed-compose">
+          <textarea id="feed-caption" rows="2" placeholder="Caption this transmission…" maxlength="500"></textarea>
+          <div class="row">
+            <input type="file" id="feed-file" accept="image/*" />
+            <button type="button" id="btn-feed-post" class="btn primary sm">Post</button>
+          </div>
+        </div>
+        <div id="feed-list" class="feed-list"></div>
+      </section>
+
+      <!-- Stories -->
+      <section id="view-stories" class="view">
+        <div class="stories-compose">
+          <input type="file" id="story-file" accept="image/*" />
+          <input id="story-caption" maxlength="200" placeholder="Story caption" />
+          <button type="button" id="btn-story-add" class="btn primary sm">Launch story</button>
+        </div>
+        <div id="stories-rail" class="stories-rail"></div>
+        <div id="story-viewer" class="story-viewer hidden">
+          <img id="story-img" alt="" />
+          <p id="story-meta"></p>
+          <button type="button" id="story-close" class="btn ghost sm">Close</button>
+        </div>
+      </section>
+
+      <!-- DMs -->
+      <section id="view-dms" class="view">
+        <div class="dm-layout">
+          <div id="dm-people" class="dm-people"></div>
+          <div class="dm-thread">
+            <div id="dm-messages" class="messages dm-messages"></div>
+            <div class="composer">
+              <textarea id="dm-input" rows="1" placeholder="Private signal…" maxlength="2000"></textarea>
+              <button type="button" id="btn-dm-send" class="btn primary sm">Send</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Telemetry -->
+      <section id="view-telemetry" class="view">
+        <div class="telemetry-grid">
+          <article class="stat">
+            <h3>Online</h3>
+            <p id="t-online" class="stat-num">0</p>
+          </article>
+          <article class="stat">
+            <h3>Rooms</h3>
+            <p id="t-rooms" class="stat-num">0</p>
+          </article>
+          <article class="stat">
+            <h3>In-flight msgs</h3>
+            <p id="t-msgs" class="stat-num">0</p>
+          </article>
+          <article class="stat">
+            <h3>Stories</h3>
+            <p id="t-stories" class="stat-num">0</p>
+          </article>
+          <article class="stat">
+            <h3>Posts</h3>
+            <p id="t-posts" class="stat-num">0</p>
+          </article>
+          <article class="stat wide">
+            <h3>Live crew</h3>
+            <ul id="t-crew" class="crew-list"></ul>
+          </article>
+          <article class="stat wide diagram-card">
+            <h3>Signal path</h3>
+            <svg viewBox="0 0 480 140" width="100%" height="140">
+              <rect x="10" y="50" width="90" height="40" rx="6" fill="#0c1828" stroke="#4a7a9a"/>
+              <text x="55" y="74" text-anchor="middle" fill="#b8d4ec" font-size="12" font-family="Space Grotesk">Browser</text>
+              <path d="M100 70 H160" stroke="#78e0ff" stroke-width="2"/>
+              <text x="130" y="58" text-anchor="middle" fill="#6ab0d0" font-size="9">WSS</text>
+              <rect x="160" y="40" width="110" height="60" rx="6" fill="#0c1828" stroke="#78e0ff"/>
+              <text x="215" y="66" text-anchor="middle" fill="#78e0ff" font-size="12" font-family="Space Grotesk">Socket hub</text>
+              <text x="215" y="84" text-anchor="middle" fill="#5a7a94" font-size="9">RAM only</text>
+              <path d="M270 70 H330" stroke="#78e0ff" stroke-width="2"/>
+              <rect x="330" y="40" width="130" height="60" rx="6" fill="#0c1828" stroke="#ffb86b"/>
+              <text x="395" y="66" text-anchor="middle" fill="#ffb86b" font-size="12" font-family="Space Grotesk">STUN / TURN</text>
+              <text x="395" y="84" text-anchor="middle" fill="#5a7a94" font-size="9">WebRTC media</text>
+              <path d="M215 100 V120 H395 V100" fill="none" stroke="#3a5a7a" stroke-dasharray="3 4"/>
+              <text x="305" y="134" text-anchor="middle" fill="#5a7a94" font-size="9">media never hits the chat server disk</text>
+            </svg>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Call overlay -->
+  <div id="call-overlay" class="call-overlay hidden">
+    <video id="remote-video" autoplay playsinline></video>
+    <video id="local-video" autoplay playsinline muted></video>
+    <div class="call-bar">
+      <span id="call-label">Connecting…</span>
+      <button type="button" id="btn-hangup" class="btn danger sm">End</button>
+    </div>
+  </div>
+
+  <!-- Incoming call -->
+  <div id="incoming-call" class="toast-call hidden">
+    <p id="incoming-label">Incoming call</p>
+    <button type="button" id="btn-accept" class="btn primary sm">Accept</button>
+    <button type="button" id="btn-reject" class="btn ghost sm">Reject</button>
+  </div>
+
+  <!-- Screenshot banner -->
+  <div id="ss-banner" class="ss-banner hidden" role="alert"></div>
+
+  <!-- New room modal -->
+  <dialog id="room-modal">
+    <form method="dialog" id="room-form" class="modal-form">
+      <h3>New orbit</h3>
+      <label>Name <input id="room-name" maxlength="40" required placeholder="Night watch" /></label>
+      <label>Topic <input id="room-topic" maxlength="120" placeholder="Optional" /></label>
+      <label>Kind
+        <select id="room-kind">
+          <option value="text">Text</option>
+          <option value="voice">Voice lobby</option>
+        </select>
+      </label>
+      <div class="row">
+        <button value="cancel" class="btn ghost">Cancel</button>
+        <button id="room-create-confirm" value="default" class="btn primary">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/stars.js"></script>
+  <script src="/js/webrtc.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
